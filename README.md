@@ -4,6 +4,4 @@ An EGL rendering wrapper library that supports popular display frameworks, curre
 
 compile:
 
-cd build
-cmake ..
-make
+cd build && cmake .. && make
