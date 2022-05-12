@@ -9,6 +9,15 @@ set(TEST_SRC
 	test.cpp
 )
 add_executable(anner_test ${TEST_SRC})
+
+if (X11)
 target_link_libraries(anner_test 
 	libanner_x11.so
 )
+endif ()
+
+if (WAYLAND)
+target_link_libraries(anner_test 
+	libanner_wayland.so
+)
+endif ()
