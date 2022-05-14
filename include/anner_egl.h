@@ -3,6 +3,5 @@
 #include  <EGL/egl.h>
 #include  <EGL/eglext.h>
 
-int egl_init_x11(void* display);
-int egl_deinit_x11(void);
-
+int egl_render(int w, int h);
+void shader_init(void);

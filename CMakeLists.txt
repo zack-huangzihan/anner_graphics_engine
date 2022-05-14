@@ -34,14 +34,18 @@ if (WAYLAND)
 pkg_search_module(WAYLAND_CURSOR REQUIRED wayland-cursor)
 pkg_search_module(WAYLAND_CLIENT REQUIRED wayland-client)
 pkg_search_module(WAYLAND_EGL REQUIRED wayland-egl)
+#pkg_search_module(WESTON REQUIRED libweston-desktop-9)
 
 include_directories(${WAYLAND_CURSOR_INCLUDE_DIRS})
 include_directories(${WAYLAND_CLIENT_INCLUDE_DIRS})
 include_directories(${WAYLAND_EGL_INCLUDE_DIRS})
+#include_directories(${WESTON_INCLUDE_DIRS})
 
 link_directories(build)
 set(ANNER_SRC
       src/wayland/wayland_window.cpp
+      src/wayland/xdg-shell-protocol.c
+      src/wayland/platform.h
       src/egl/anner_egl.cpp
 )
 
@@ -53,7 +57,14 @@ target_link_libraries(anner_wayland
 	${WAYLAND_CURSOR_LIBRARIES}
 	${WAYLAND_CLIENT_LIBRARIES}
 	${WAYLAND_EGL_LIBRARIES}
+#	${WESTON_LIBRARIES}
 )
 endif ()
+
+set(ANNER_TEST
+      src/opengles-simple-egl.c
+      src/wayland/xdg-shell-protocol.c
+      src/wayland/platform.h
+)
 
 add_subdirectory(demo)
