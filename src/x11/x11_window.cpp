@@ -47,7 +47,7 @@ int x_deinit() {
 	return 0;
 }
 
-void egl_init (void* display){
+int egl_init (void* display){
 	egl_display  =  eglGetDisplay( (EGLNativeDisplayType) display );
 	if ( egl_display == EGL_NO_DISPLAY ) {
 		cerr << "Got no EGL display." << endl;
@@ -69,10 +69,10 @@ void egl_init (void* display){
 		EGL_NONE
 	};
 	EGLint     num_config;
-	// if ( !eglChooseConfig( egl_display, attr, &ecfg, 1, &num_config ) ) {
-	// 	cerr << "Failed to choose config (eglError: " << eglGetError() << ")" << endl;
-	// 	return -1;
-	// }
+	if ( !eglChooseConfig( egl_display, attr, &ecfg, 1, &num_config ) ) {
+		cerr << "Failed to choose config (eglError: " << eglGetError() << ")" << endl;
+		return -1;
+	}
 	if ( num_config != 1 ) {
 		cerr << "Didn't get exactly one config, but " << num_config << endl;
 		return -1;
@@ -94,6 +94,7 @@ void egl_init (void* display){
 	}
 	// associate the egl-context with the egl-surface
 	eglMakeCurrent( egl_display, egl_surface, egl_surface, egl_context );
+	return 0;
 }
 
 void *anner_window_management(void *arg) {
@@ -183,5 +184,4 @@ void anner_destory_window() {
 	quit = true;
 	egl_deinit_x11();
 	x_deinit();
-	return 0;
 }
