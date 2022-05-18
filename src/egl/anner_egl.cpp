@@ -77,7 +77,7 @@ static GLuint CreateSimpleTexture2D(unsigned char* pixels, int w, int h, int for
    glBindTexture ( GL_TEXTURE_2D, textureId );
 
    // Load the texture GL_BGRA_EXT 0x80E1
-   glTexImage2D ( GL_TEXTURE_2D, 0, GL_BGRA_EXT, w, h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, pixels);
+   glTexImage2D ( GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, pixels);
    //glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, pixelss);
 
 
@@ -125,6 +125,7 @@ int egl_render(int w, int h) {
    	glBindTexture ( GL_TEXTURE_2D, textureId );
    	// Set the sampler texture unit to 0
    	glUniform1i (position_loc, 0);
+      //glReadPixels
 
    	glDrawElements (GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices );
    	eglSwapBuffers ( egl_display, egl_surface );
