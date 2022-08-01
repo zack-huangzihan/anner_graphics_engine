@@ -4,12 +4,13 @@ PROJECT(anner)
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
+add_definitions(-g)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(EGL REQUIRED egl)
 pkg_search_module(EGLESV2 REQUIRED glesv2)
 include_directories(${EGL_INCLUDE_DIRS})
 include_directories(${EGLESV2_INCLUDE_DIRS})
+include_directories(src)
 include_directories(include)
 
 if (X11)
@@ -58,6 +59,26 @@ target_link_libraries(anner_wayland
 	${WAYLAND_CLIENT_LIBRARIES}
 	${WAYLAND_EGL_LIBRARIES}
 #	${WESTON_LIBRARIES}
+)
+endif ()
+
+if (DUMMY)
+pkg_search_module(LIBDRM REQUIRED libdrm)
+pkg_search_module(LIBMALI REQUIRED mali)
+include_directories(${LIBDRM_INCLUDE_DIRS})
+include_directories(${LIBMALI_INCLUDE_DIRS})
+link_directories(build)
+set(ANNER_SRC
+      src/dummy/dummy_egl.cpp
+      src/anner_effects.cpp
+)
+
+add_library(anner_dummy SHARED ${ANNER_SRC})
+target_link_libraries(anner_dummy 
+	${EGL_LIBRARIES}
+	${EGLESV2_LIBRARIES}
+	${LIBDRM_LIBRARIES}
+	${LIBMALI_LIBRARIES}
 )
 endif ()
 
