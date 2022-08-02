@@ -93,6 +93,27 @@ static void checkGlError(const char* op) {
     }
 }
 
+// 2.0 vision
+/*static const char gVertexShader[] =
+      "attribute vec4 a_position;                 \n"
+      "attribute vec2 a_texCoord;                 \n"
+      "varying vec2 v_texCoord;                   \n"
+      "void main()                                \n"
+      "{                                          \n"
+      "   v_texCoord = a_texCoord;                \n"
+      "   gl_Position = a_position;               \n"
+      "}                                          \n";
+
+static const char gFragmentShader[] =
+      "precision mediump float;                            \n"
+      "varying vec2 v_texCoord;                            \n"
+      "uniform sampler2D s_texture;                        \n"
+      "void main()                                         \n"
+      "{                                                   \n"
+      "  gl_FragColor = texture2D( s_texture, v_texCoord );\n"
+      "}                                                   \n";
+*/
+
 static const char gVertexShader[] =
       "#version 300 es                            \n"
       "layout(location = 0) in vec4 a_position;   \n"
