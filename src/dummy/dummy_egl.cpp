@@ -118,6 +118,7 @@ static const char gFragmentShader[] =
 GLuint gProgram;
 GLuint gvTextureSamplerHandle;
 GLuint Gtexture;
+GLuint Otexture;
 EGLBoolean returnValue;
 EGLConfig myConfig = {0};
 
@@ -134,6 +135,10 @@ EGLSurface surface;
 EGLint surface_w, surface_h;
 
 EGLDisplay dpy;
+GLuint out_fbo_id = 0;
+
+uint32_t in_handle;
+uint32_t out_handle;  
 
 GLuint loadShader(GLenum shaderType, const char* pSource) {
     GLuint shader = glCreateShader(shaderType);
@@ -290,13 +295,12 @@ int anner_dumpPixels(int len, int inWindowWidth, int inWindowHeight, unsigned ch
     return 0;
 }
 
-struct drm_prime_handle fd_args;
-struct drm_mode_map_dumb mmap_arg;
-struct drm_mode_destroy_dumb destory_arg;
-struct drm_mode_create_dumb alloc_arg;
-
-void *buf_alloc(int *fd, int Tex_w, int Tex_h)
+void *buf_alloc(int *fd, int Tex_w, int Tex_h, int type)
 {
+    struct drm_prime_handle fd_args;
+    struct drm_mode_map_dumb mmap_arg;
+    struct drm_mode_destroy_dumb destory_arg;
+    struct drm_mode_create_dumb alloc_arg;
     static const char* card = "/dev/dri/card0";
     int drm_fd = -1;
     int flag = O_RDWR;
@@ -351,6 +355,11 @@ void *buf_alloc(int *fd, int Tex_w, int Tex_h)
         printf("failed to mmap buffer: %s\n", strerror(errno));
         vir_addr = NULL;
         goto destory_dumb;
+    }
+    if (type == 0) {
+      in_handle = alloc_arg.handle;  
+    } else {
+      out_handle = alloc_arg.handle;    
     }
     printf("alloc map=%x \n",map);
     return vir_addr;
@@ -423,10 +432,61 @@ void anner_create_window(int window_width, int window_height) {
     fprintf(stderr, "Window dimensions: %d x %d\n", surface_w, surface_h);
 }
 
-int anner_create_texture(void** pixels, int *drmbuf_fd, int w, int h, int format){
+int anner_create_intput(void** pixels, int *drmbuf_fd, int w, int h, int format){
 
-    *pixels = buf_alloc(drmbuf_fd, w, h);
-    printf("rk-debug [%d,%x] \n",*drmbuf_fd, *pixels);
+    *pixels = buf_alloc(drmbuf_fd, w, h, 0);
+    printf("intput rk-debug [%d,%x] \n",*drmbuf_fd, *pixels);
+
+    return 0;
+}
+
+int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format){
+
+    *pixels = buf_alloc(drmbuf_fd, w, h, 1);
+    EGLImageKHR img = NULL;
+    PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
+    PFNEGLCREATEIMAGEKHRPROC create_image;
+    printf("output rk-debug [%d,%x] \n",*drmbuf_fd, *pixels);
+    create_image = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
+    image_target_texture_2d = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) eglGetProcAddress("glEGLImageTargetTexture2DOES");
+    
+    int out_fd = *drmbuf_fd;
+    unsigned stride = ALIGN(w, 32) * 4;
+    EGLint attr[] = {
+            EGL_WIDTH, w,
+            EGL_HEIGHT, h,
+            EGL_LINUX_DRM_FOURCC_EXT, format,
+            EGL_DMA_BUF_PLANE0_FD_EXT, out_fd,
+            EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+            EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+            EGL_NONE
+    };
+
+    img = create_image(dpy, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)NULL, attr);
+    ECHK(img);
+    if(img == EGL_NO_IMAGE_KHR)
+    {
+        printf("rk-debug eglCreateImageKHR NULL \n ");
+        return 0;
+    }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glActiveTexture(GL_TEXTURE1);
+    glGenTextures(1, &Otexture);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, Otexture);
+    image_target_texture_2d(GL_TEXTURE_EXTERNAL_OES, img);
+
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    glGenFramebuffers(1, &out_fbo_id);
+    glBindFramebuffer(GL_FRAMEBUFFER, out_fbo_id);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_EXTERNAL_OES, Otexture, 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+        printf("rk_debug create fbo success! fbo = %d\n", out_fbo_id);
+    } else {
+        printf("rk_debug create fbo failed!\n");
+    }
+
 
     return 0;
 }
@@ -446,7 +506,7 @@ void anner_activation_texture(void* pixels, int drmbuf_fd, int w, int h, int for
             EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
             EGL_NONE
     };
-    printf("test rk-debug [%d,%x] \n",drmbuf_fd, pixels);
+    printf("in rk-debug [%d,%x] \n",drmbuf_fd, pixels);
     create_image = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
     image_target_texture_2d = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) eglGetProcAddress("glEGLImageTargetTexture2DOES");
 
@@ -457,13 +517,13 @@ void anner_activation_texture(void* pixels, int drmbuf_fd, int w, int h, int for
         printf("rk-debug eglCreateImageKHR NULL \n ");
         return ;
     }
-    GCHK(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-    GCHK(glGenTextures(1, &Gtexture));
-    GCHK(glBindTexture(GL_TEXTURE_2D, Gtexture));
-    GCHK(image_target_texture_2d(GL_TEXTURE_2D, img));
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glGenTextures(1, &Gtexture);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, Gtexture);
+    image_target_texture_2d(GL_TEXTURE_EXTERNAL_OES, img);
 
-    GCHK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-    GCHK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 }
 
 void anner_set_effects(int Angle) {
@@ -483,17 +543,27 @@ int anner_disable_texture() {
     glDeleteTextures(1, &Gtexture);
 }
 
-int anner_delete_texture(void* pixels, int drm_fd, int len) {
+int anner_delete_buf(void* pixels, int drm_fd, int len, int type) {
     glDeleteTextures(1, &Gtexture);
+    glDeleteTextures(1, &Otexture);
     if (pixels) {
         munmap(pixels, len);
     }
     if (drm_fd) {
         close(drm_fd);
     }
+
+    struct drm_mode_destroy_dumb destory_arg;
+    memset(&destory_arg, 0, sizeof(destory_arg));
+    if (type == 0) {
+        destory_arg.handle = in_handle;  
+    } else {
+        destory_arg.handle = out_handle;
+    } 
     int ret = drmIoctl(drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destory_arg);
     return ret;
 }
+
 void anner_destory_window(void) {
     eglDestroyContext(dpy, context);
     eglDestroySurface(dpy, surface);
