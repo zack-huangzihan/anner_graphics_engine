@@ -432,7 +432,7 @@ void anner_create_window(int window_width, int window_height) {
     fprintf(stderr, "Window dimensions: %d x %d\n", surface_w, surface_h);
 }
 
-int anner_create_intput(void** pixels, int *drmbuf_fd, int w, int h, int format){
+int anner_create_intput(void** pixels, int *drmbuf_fd, int w, int h, int format, int stride){
 
     *pixels = buf_alloc(drmbuf_fd, w, h, 0);
     printf("intput rk-debug [%d,%x] \n",*drmbuf_fd, *pixels);
@@ -440,7 +440,7 @@ int anner_create_intput(void** pixels, int *drmbuf_fd, int w, int h, int format)
     return 0;
 }
 
-int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format){
+int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format, int stride){
 
     *pixels = buf_alloc(drmbuf_fd, w, h, 1);
     EGLImageKHR img = NULL;
@@ -449,9 +449,20 @@ int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format)
     printf("output rk-debug [%d,%x] \n",*drmbuf_fd, *pixels);
     create_image = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
     image_target_texture_2d = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) eglGetProcAddress("glEGLImageTargetTexture2DOES");
-    
     int out_fd = *drmbuf_fd;
-    unsigned stride = ALIGN(w, 32) * 4;
+    // switch(format) {
+    //     case DRM_FORMAT_ABGR8888:
+    //         stride = ALIGN(w, 1) * 4;
+    //         break;
+    //     case DRM_FORMAT_RGB888:
+    //         stride = ALIGN(w, 32) * 3;
+    //         break;
+    //     case DRM_FORMAT_YUYV:
+    //         break;
+    //     default:
+    //         printf("rk-debug[%s %d] error in_format unSupport:0x%x \n",__FUNCTION__,__LINE__,format);
+    // }
+    printf("anner_create_output w = %d h = %d stride = %d\n", w, h, stride);
     EGLint attr[] = {
             EGL_WIDTH, w,
             EGL_HEIGHT, h,
@@ -472,15 +483,15 @@ int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format)
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glActiveTexture(GL_TEXTURE1);
     glGenTextures(1, &Otexture);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, Otexture);
-    image_target_texture_2d(GL_TEXTURE_EXTERNAL_OES, img);
+    glBindTexture(GL_TEXTURE_2D, Otexture);
+    image_target_texture_2d(GL_TEXTURE_2D, img);
 
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     glGenFramebuffers(1, &out_fbo_id);
     glBindFramebuffer(GL_FRAMEBUFFER, out_fbo_id);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_EXTERNAL_OES, Otexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Otexture, 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
         printf("rk_debug create fbo success! fbo = %d\n", out_fbo_id);
     } else {
@@ -491,12 +502,26 @@ int anner_create_output(void** pixels, int *drmbuf_fd, int w, int h, int format)
     return 0;
 }
 
-void anner_activation_texture(void* pixels, int drmbuf_fd, int w, int h, int format) {
+void anner_activation_texture(void* pixels, int drmbuf_fd, int w, int h, int format, int stride) {
     EGLImageKHR img = NULL;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
 
     PFNEGLCREATEIMAGEKHRPROC create_image;
-    unsigned stride = ALIGN(w, 32) * 4;
+    // unsigned stride = 0;
+    // switch(format) {
+    //     case DRM_FORMAT_ABGR8888:
+    //         stride = ALIGN(w, 1) * 4;
+    //         break;
+    //     case DRM_FORMAT_RGB888:
+    //         stride = ALIGN(w, 32) * 3;
+    //         break;
+    //     case DRM_FORMAT_YUYV:
+    //         stride = ALIGN(w, 32) * 2;
+    //         break;
+    //     default:
+    //         printf("rk-debug[%s %d] error in_format unSupport:0x%x \n",__FUNCTION__,__LINE__,format);
+    // }
+
     EGLint attr[] = {
             EGL_WIDTH, w,
             EGL_HEIGHT, h,
@@ -519,11 +544,11 @@ void anner_activation_texture(void* pixels, int drmbuf_fd, int w, int h, int for
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &Gtexture);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, Gtexture);
-    image_target_texture_2d(GL_TEXTURE_EXTERNAL_OES, img);
+    glBindTexture(GL_TEXTURE_2D, Gtexture);
+    image_target_texture_2d(GL_TEXTURE_2D, img);
 
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 }
 
 void anner_set_effects(int Angle) {

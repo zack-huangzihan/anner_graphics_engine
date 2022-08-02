@@ -9,6 +9,7 @@
 #include <xf86drmMode.h>
 #include "anner.h" 
 
+#define ALIGN(_v, _d) (((_v) + ((_d) - 1)) & ~((_d) - 1))
 int main() {
 	printf("dummy anner test begin\n");
 	FILE *fp;
@@ -19,10 +20,10 @@ int main() {
 	int drm_fd = -1;
 	int out_drm_fd = -1;
 	anner_create_window(720,1280);
-	anner_create_intput(&pixels, &drm_fd, 1280, 720, DRM_FORMAT_ABGR8888);
-	anner_create_output(&out_pixels, &out_drm_fd, 720, 1280, DRM_FORMAT_ABGR8888);
+	anner_create_intput(&pixels, &drm_fd, 1280, 720, DRM_FORMAT_ABGR8888, ALIGN(1280, 1) * 4);
+	anner_create_output(&out_pixels, &out_drm_fd, 720, 1280, DRM_FORMAT_ABGR8888, ALIGN(720, 1) * 4);
 	printf("huangzihan   test\n");
-	fp = fopen("/userdata/bgra-1280-720.bin","rb");
+	fp = fopen("/home/rockchip/bgra-1280-720.bin","rb");
 	if(fp){
 		printf("textures size:%d\n",size_file);
 		fread((void *)pixels, 1, size_file, fp);
@@ -32,17 +33,15 @@ int main() {
 		return -1;
 	}
 	int i = 0;
-	while (i<100) {
+	while (i<1) {
 		printf("render....\n");
-		anner_activation_texture(pixels, drm_fd, 1280, 720, DRM_FORMAT_ABGR8888);
+		anner_activation_texture(pixels, drm_fd, 1280, 720, DRM_FORMAT_ABGR8888, ALIGN(1280, 1) * 4);
 		anner_set_effects(90);
 		anner_render(720, 1280);
 		anner_disable_texture();
 		i++;
 	}
-	//anner_dumpPixels(1280*720*4, 720, 1280, pPixelDataFront, "/userdata/dumplayer_out.bin" );
-	//free(pPixelDataFront);
-	const char* file_name = "/userdata/dumplayer_out.bin";
+	const char* file_name = "/home/rockchip/dumplayer_out.bin";
     FILE *file = fopen(file_name, "wb+");
     if (!file)
     {
