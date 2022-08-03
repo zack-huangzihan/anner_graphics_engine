@@ -327,6 +327,119 @@ void *ectx_create_window(int w, int h)
     return (void *)ectx;
 }
 
+static EGLint* choose_attr(int format, int is_afbc, int fd, int w, int h, int stride) {
+    EGLint* attr_out = (EGLint*)malloc(100);
+    //EGLint attr[100];
+    memset(attr_out, 0, sizeof(attr_out));
+    switch(format) {
+        case DRM_FORMAT_ABGR8888: {
+            EGLint attr[] = {
+                    EGL_WIDTH, w,
+                    EGL_HEIGHT, h,
+                    EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
+                    EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                    EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT:EGL_NONE, is_afbc?((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)&0xffffffff):EGL_NONE, //rk支持afbc默认格式
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT:EGL_NONE, is_afbc?(0x08<<24):EGL_NONE,  //ARM平台标志位
+                    EGL_NONE
+            };
+            memcpy(attr_out, attr, sizeof(attr));
+            break;
+        }
+        case DRM_FORMAT_RGB888: {
+            EGLint attr[] = {
+                    EGL_WIDTH, w,
+                    EGL_HEIGHT, h,
+                    EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_RGB888,
+                    EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                    EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT:EGL_NONE, is_afbc?((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)&0xffffffff):EGL_NONE, //rk支持afbc默认格式
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT:EGL_NONE, is_afbc?(0x08<<24):EGL_NONE,  //ARM平台标志位
+                    EGL_NONE
+            };
+            memcpy(attr_out, attr, sizeof(attr));
+            break;
+        }
+        case DRM_FORMAT_YUYV: {
+            EGLint attr[] = {
+                    EGL_WIDTH, w,
+                    EGL_HEIGHT, h,
+                    EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_YUYV,
+                    EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                    EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT:EGL_NONE, is_afbc?((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)&0xffffffff):EGL_NONE, //rk支持afbc默认格式
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT:EGL_NONE, is_afbc?(0x08<<24):EGL_NONE,  //ARM平台标志位
+                    EGL_NONE
+            };
+            memcpy(attr_out, attr, sizeof(attr));
+            break;
+        }
+        case DRM_FORMAT_YUV420_8BIT: {//该格式仅支持afbc，不支持linear
+            EGLint attr[] = {
+                    EGL_WIDTH, w,
+                    EGL_HEIGHT, h,
+                    EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_YUV420_8BIT,
+                    EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                    EGL_DMA_BUF_PLANE0_PITCH_EXT, stride, //该格式afbc 无所谓stride 为1还是2
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT:EGL_NONE, is_afbc?((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)&0xffffffff):EGL_NONE, //rk支持afbc默认格式
+                    is_afbc?EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT:EGL_NONE, is_afbc?(0x08<<24):EGL_NONE,  //ARM平台标志位
+                    EGL_NONE
+            };
+            memcpy(attr_out, attr, sizeof(attr));
+            break;
+        }
+        case DRM_FORMAT_NV12: {
+               EGLint* tmp;
+               if(!is_afbc)
+                {
+                EGLint attr[] = {
+                            EGL_WIDTH, w,
+                            EGL_HEIGHT, h,
+                            EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_NV12,
+                            EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                            EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                            EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+                            EGL_DMA_BUF_PLANE1_FD_EXT, fd,
+                            EGL_DMA_BUF_PLANE1_OFFSET_EXT, stride*h,
+                            EGL_DMA_BUF_PLANE1_PITCH_EXT, stride,
+                            EGL_NONE
+                    };
+                tmp = attr;
+                } else {
+                EGLint attr[] = {
+                            EGL_WIDTH, w,
+                            EGL_HEIGHT, h,
+                            EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_NV12,
+
+                            EGL_DMA_BUF_PLANE0_FD_EXT, fd,
+                            EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+                            EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+                            EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, ((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_32x8)&0xffffffff), //rk支持afbc默认格式
+                            EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, (0x08<<24),  //ARM平台标志位
+
+                            EGL_DMA_BUF_PLANE1_FD_EXT, fd,
+                            EGL_DMA_BUF_PLANE1_OFFSET_EXT, stride*h,
+                            EGL_DMA_BUF_PLANE1_PITCH_EXT, stride,
+                            EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, ((AFBC_FORMAT_MOD_SPARSE | AFBC_FORMAT_MOD_BLOCK_SIZE_64x4)&0xffffffff), //rk支持afbc默认格式
+                            EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT, (0x08<<24),  //ARM平台标志位
+
+                            EGL_NONE
+                    };     
+                tmp = attr;  
+                }
+            memcpy(attr_out, tmp, sizeof(tmp));
+            break;
+        }
+        default:
+            printf("rk-debug[%s %d] error in_format unSupport:0x%x \n",__FUNCTION__,__LINE__,format);
+    }
+    return attr_out;
+}
+
 int ectx_activation_texture(void *_ectx, int drmbuf_fd,
                             int w, int h, int stride, int format) {
     struct egl_ctx *ectx = (struct egl_ctx *)_ectx;
@@ -334,15 +447,8 @@ int ectx_activation_texture(void *_ectx, int drmbuf_fd,
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
 
     PFNEGLCREATEIMAGEKHRPROC create_image;
-    EGLint attr[] = {
-            EGL_WIDTH, w,
-            EGL_HEIGHT, h,
-            EGL_LINUX_DRM_FOURCC_EXT, format,
-            EGL_DMA_BUF_PLANE0_FD_EXT, drmbuf_fd,
-            EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-            EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
-            EGL_NONE
-    };
+    EGLint* attr = choose_attr(format, 0, drmbuf_fd, w, h, stride);
+
     ectx->format = format;
     create_image = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
     image_target_texture_2d =
@@ -362,7 +468,7 @@ int ectx_activation_texture(void *_ectx, int drmbuf_fd,
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
+    free(attr);
     return 0;
 }
 
@@ -373,15 +479,8 @@ int ectx_import_output(void *_ectx, int drmbuf_fd,
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
     PFNEGLCREATEIMAGEKHRPROC create_image;
     int out_fd = drmbuf_fd;
-    EGLint attr[] = {
-            EGL_WIDTH, w,
-            EGL_HEIGHT, h,
-            EGL_LINUX_DRM_FOURCC_EXT, format,
-            EGL_DMA_BUF_PLANE0_FD_EXT, out_fd,
-            EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-            EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
-            EGL_NONE
-    };
+    EGLint* attr = choose_attr(format, 0, out_fd, w, h, stride);
+
     create_image = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
     image_target_texture_2d = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) eglGetProcAddress("glEGLImageTargetTexture2DOES");
 
@@ -409,8 +508,7 @@ int ectx_import_output(void *_ectx, int drmbuf_fd,
     } else {
         printf("rk_debug create fbo failed!\n");
     }
-
-
+    free(attr);
     return 0;
 }
 
