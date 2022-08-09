@@ -35,3 +35,4 @@ target_link_libraries(anner_test
 	libanner_wayland.so
 )
 endif ()
+add_subdirectory(drm_sample)
