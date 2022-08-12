@@ -190,6 +190,7 @@ static int modeset_prepare(int fd)
 	unsigned int i;
 	struct modeset_dev *dev;
 	int ret;
+	int is_conn = 0;
 
 	/* retrieve resources */
 	res = drmModeGetResources(fd);
@@ -208,7 +209,7 @@ static int modeset_prepare(int fd)
 				i, res->connectors[i], errno);
 			continue;
 		}
-
+		is_conn = 1;
 		/* create a device structure */
 		dev = malloc(sizeof(*dev));
 		memset(dev, 0, sizeof(*dev));
@@ -235,7 +236,13 @@ static int modeset_prepare(int fd)
 
 	/* free resources again */
 	drmModeFreeResources(res);
-	return 0;
+
+	if(is_conn == 1) {
+		return 0;
+	}else {
+		fprintf(stderr, "cannot setup device for connector, All are unavailable");
+		return -errno;
+	}
 }
 
 /*
