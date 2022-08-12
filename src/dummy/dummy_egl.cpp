@@ -387,8 +387,9 @@ void *buf_alloc(int *fd, int Tex_w, int Tex_h, int type)
 destory_dumb:
   memset(&destory_arg, 0, sizeof(destory_arg));
   destory_arg.handle = alloc_arg.handle;
-  int fdd = *fd ;
-  ret = drmIoctl(fdd, DRM_IOCTL_MODE_DESTROY_DUMB, &destory_arg);
+  int fdd = *fd;
+  ret = drmIoctl(drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destory_arg);
+  close(fdd);
   if (ret)
     printf("failed to destory dumb %d\n", ret);
   return vir_addr;
