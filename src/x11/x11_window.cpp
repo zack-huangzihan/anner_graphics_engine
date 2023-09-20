@@ -47,7 +47,7 @@ int x_deinit() {
 	return 0;
 }
 
-int egl_init (void* display){
+int egl_init (void* display, Window win){
 	egl_display  =  eglGetDisplay( (EGLNativeDisplayType) display );
 	if ( egl_display == EGL_NO_DISPLAY ) {
 		cerr << "Got no EGL display." << endl;
@@ -159,7 +159,7 @@ int anner_create_window(int window_width, int window_height) {
 							False,
 							SubstructureNotifyMask,
 							&xev );
-	if(egl_init((EGLNativeDisplayType) x_display) == -1) {
+	if(egl_init((EGLNativeDisplayType) x_display, win) == -1) {
 		printf("egl_init_x11 is fail\n");
 		return -1;
 	}
@@ -185,3 +185,4 @@ void anner_destory_window() {
 	egl_deinit_x11();
 	x_deinit();
 }
+
