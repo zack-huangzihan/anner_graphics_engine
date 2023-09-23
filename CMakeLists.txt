@@ -12,6 +12,7 @@ include_directories(${EGL_INCLUDE_DIRS})
 include_directories(${EGLESV2_INCLUDE_DIRS})
 include_directories(src)
 include_directories(include)
+include_directories(/usr/include/libdrm)
 
 if (X11)
 pkg_search_module(X11 REQUIRED x11)
@@ -81,11 +82,5 @@ target_link_libraries(anner_dummy
 	${LIBMALI_LIBRARIES}
 )
 endif ()
-
-set(ANNER_TEST
-      src/opengles-simple-egl.c
-      src/wayland/xdg-shell-protocol.c
-      src/wayland/platform.h
-)
 
 add_subdirectory(demo)
