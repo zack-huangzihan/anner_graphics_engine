@@ -267,7 +267,7 @@ int main()
     }
 
     // Make sure that we can use OpenGL in this EGL app.
-    //eglBindAPI(EGL_OPENGL_API);
+    eglBindAPI(EGL_OPENGL_ES_API);
 
     printf("Initialized EGL version: %d.%d\n", major, minor);
 
