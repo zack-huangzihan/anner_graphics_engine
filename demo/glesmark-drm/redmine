@@ -1,0 +1,7 @@
+redmine:
+
+This is a gles2 test program that uses a drm backend. It can set the resolution and layers
+
+Usage method：
+	SDK/external/glesmark-drm
+    ./build.sh
