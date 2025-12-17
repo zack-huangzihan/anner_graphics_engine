@@ -31,6 +31,11 @@
 static int target_fps = 60;
 static int show_fps = 0;
 static int running = 1;
+static int window_x = 0;
+static int window_y = 0;
+static int window_width = 0;
+static int window_height = 0;
+
 
 // 设备句柄
 static int drm_device;
@@ -103,14 +108,20 @@ static void print_usage(const char *prog_name) {
     printf("  -s, --show-fps       Show FPS counter\n");
     printf("  -w, --width WIDTH    Set custom width (default: auto)\n");
     printf("  -h, --height HEIGHT  Set custom height (default: auto)\n");
-    printf("  -p, --plane PLANE_ID Specify plane ID to use (default: auto)\n");  // 新增
-    printf("  -H, --help           Show this help message\n");
+    printf("  -p, --plane PLANE_ID Specify plane ID to use (default: auto)\n");
+    printf("  -x, --xpos X         Set window X position (default: 0)\n");  // 新增
+    printf("  -y, --ypos Y         Set window Y position (default: 0)\n");  // 新增
+    printf("  -W, --win-width W    Set window width (default: full screen)\n");  // 新增
+    printf("  -H, --win-height H   Set window height (default: full screen)\n");  // 新增
+    printf("  --help               Show this help message\n");
     printf("\nExamples:\n");
     printf("  %s                    # Run at 60 FPS with auto resolution\n", prog_name);
     printf("  %s -f 30              # Run at 30 FPS\n", prog_name);
     printf("  %s -w 1920 -h 1080    # Run at 1920x1080 resolution\n", prog_name);
     printf("  %s -f 120 -s -w 1280 -h 720  # 720p at 120FPS with FPS counter\n", prog_name);
-    printf("  %s -p 100             # Use specific plane ID 100\n", prog_name);  // 新增
+    printf("  %s -p 100             # Use specific plane ID 100\n", prog_name);
+    printf("  %s -x 100 -y 200      # Position window at (100, 200)\n", prog_name);  // 新增
+    printf("  %s -x 100 -y 200 -W 400 -H 300  # 400x300 window at (100,200)\n", prog_name);  // 新增
 }
 
 // 解析命令行参数
@@ -120,13 +131,19 @@ static void parse_arguments(int argc, char *argv[]) {
         {"show-fps", no_argument, 0, 's'},
         {"width", required_argument, 0, 'w'},
         {"height", required_argument, 0, 'h'},
-        {"plane", required_argument, 0, 'p'},  // 新增
-        {"help", no_argument, 0, 'H'},
+        {"plane", required_argument, 0, 'p'},
+        {"xpos", required_argument, 0, 'x'},  // 新增
+        {"ypos", required_argument, 0, 'y'},  // 新增
+        {"win-width", required_argument, 0, 'W'},  // 新增
+        {"win-height", required_argument, 0, 'H'},  // 新增
+        {"help", no_argument, 0, 0},
         {0, 0, 0, 0}
     };
     
     int opt;
-    while ((opt = getopt_long(argc, argv, "f:sw:h:p:H", long_options, NULL)) != -1) {  // 修改了选项字符串
+    int option_index = 0;
+    
+    while ((opt = getopt_long(argc, argv, "f:sw:h:p:x:y:W:H:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'f':
                 target_fps = atoi(optarg);
@@ -152,17 +169,45 @@ static void parse_arguments(int argc, char *argv[]) {
                     custom_height = 0;
                 }
                 break;
-            case 'p':  // 新增：处理平面ID参数
+            case 'p':
                 custom_plane_id = atoi(optarg);
                 printf("User specified plane ID: %d\n", custom_plane_id);
                 break;
-            case 'H':
-                print_usage(argv[0]);
-                exit(0);
+            case 'x':  // 新增：窗口X位置
+                window_x = atoi(optarg);
+                if (window_x < 0) window_x = 0;
+                break;
+            case 'y':  // 新增：窗口Y位置
+                window_y = atoi(optarg);
+                if (window_y < 0) window_y = 0;
+                break;
+            case 'W':  // 新增：窗口宽度
+                window_width = atoi(optarg);
+                if (window_width < 1) window_width = 0;
+                break;
+            case 'H':  // 新增：窗口高度
+                window_height = atoi(optarg);
+                if (window_height < 1) window_height = 0;
+                break;
+            case 0:  // --help
+                if (strcmp(long_options[option_index].name, "help") == 0) {
+                    print_usage(argv[0]);
+                    exit(0);
+                }
+                break;
             default:
                 print_usage(argv[0]);
                 exit(1);
         }
+    }
+    
+    // 打印窗口设置信息
+    if (window_width > 0 && window_height > 0) {
+        printf("Window position: (%d, %d), size: %dx%d\n", window_x, window_y, window_width, window_height);
+    } else if (window_x != 0 || window_y != 0) {
+        printf("Window position: (%d, %d), size: full screen\n", window_x, window_y);
+    } else {
+        printf("Window position: full screen\n");
     }
 }
 
@@ -342,20 +387,28 @@ static int create_mode_blob(drmModeModeInfo *mode, uint32_t *blob_id) {
 
 // 原子提交设置平面（参考drm_cursor.c的实现）
 static int atomic_set_plane(uint32_t fb_id) {
+    // 提前定义所有变量
+    int display_width = 0;
+    int display_height = 0;
+    drmModeAtomicReq *req = NULL;
+    int ret = 0;
+    
+    // 计算显示尺寸（提前计算）
+    display_width = (window_width > 0) ? window_width : mode.hdisplay;
+    display_height = (window_height > 0) ? window_height : mode.vdisplay;
+
     if (!use_atomic) {
         // 回退到传统模式
         return drmModeSetPlane(drm_device, plane_id, crtc_id, fb_id, 0,
-                               0, 0, mode.hdisplay, mode.vdisplay,
+                               window_x, window_y, display_width, display_height,
                                0, 0, mode.hdisplay << 16, mode.vdisplay << 16);
     }
     
-    drmModeAtomicReq *req = drmModeAtomicAlloc();
+    req = drmModeAtomicAlloc();
     if (!req) {
         fprintf(stderr, "Failed to allocate atomic request\n");
         return -1;
     }
-    
-    int ret = 0;
     
     // 获取属性ID
     uint32_t crtc_active_id = get_property_id(drm_device, crtc_id, DRM_MODE_OBJECT_CRTC, "ACTIVE");
@@ -411,16 +464,17 @@ static int atomic_set_plane(uint32_t fb_id) {
     ret = drmModeAtomicAddProperty(req, plane_id, plane_src_h, mode.vdisplay << 16);
     if (ret < 0) goto property_error;
     
-    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_x, 0);
+    // 使用窗口位置和大小
+    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_x, window_x);
     if (ret < 0) goto property_error;
     
-    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_y, 0);
+    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_y, window_y);
     if (ret < 0) goto property_error;
     
-    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_w, mode.hdisplay);
+    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_w, display_width);
     if (ret < 0) goto property_error;
     
-    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_h, mode.vdisplay);
+    ret = drmModeAtomicAddProperty(req, plane_id, plane_crtc_h, display_height);
     if (ret < 0) goto property_error;
     
     // 提交原子请求
@@ -431,8 +485,10 @@ static int atomic_set_plane(uint32_t fb_id) {
         use_atomic = 0;
         fprintf(stderr, "Falling back to legacy mode\n");
         drmModeAtomicFree(req);
+        
+        // 使用传统模式设置平面
         return drmModeSetPlane(drm_device, plane_id, crtc_id, fb_id, 0,
-                               0, 0, mode.hdisplay, mode.vdisplay,
+                               window_x, window_y, display_width, display_height,
                                0, 0, mode.hdisplay << 16, mode.vdisplay << 16);
     }
     
@@ -442,7 +498,9 @@ static int atomic_set_plane(uint32_t fb_id) {
 property_error:
     fprintf(stderr, "Failed to add property to atomic request\n");
 cleanup:
-    drmModeAtomicFree(req);
+    if (req) {
+        drmModeAtomicFree(req);
+    }
     return -1;
 }
 
@@ -453,7 +511,6 @@ static int init_drm() {
         perror("Cannot open DRM device");
         return -1;
     }
-
         
     // 启用原子客户端能力
     if (drmSetClientCap(drm_device, DRM_CLIENT_CAP_ATOMIC, 1) < 0) {
@@ -514,6 +571,17 @@ static int init_drm() {
         // 使用显示器默认模式
         mode = connector->modes[0];
         printf("Using display resolution: %dx%d@%dHz\n", mode.hdisplay, mode.vdisplay, mode.vrefresh);
+    }
+
+    // 现在mode已经初始化，可以验证窗口位置
+    if (window_x + (window_width > 0 ? window_width : mode.hdisplay) > mode.hdisplay) {
+        fprintf(stderr, "Warning: Window X position + width exceeds screen width\n");
+        window_x = 0;
+    }
+    
+    if (window_y + (window_height > 0 ? window_height : mode.vdisplay) > mode.vdisplay) {
+        fprintf(stderr, "Warning: Window Y position + height exceeds screen height\n");
+        window_y = 0;
     }
 
     // 查找编码器
